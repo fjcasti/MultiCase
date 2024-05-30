@@ -1,0 +1,241 @@
+
+
+
+	// Get buffer length based on text selection
+	size_t bufLength = (int)::SendMessage(hCurrScintilla, SCI_GETSELTEXT, 0, 0);
+	if (bufLength < 2)
+		return;
+	// Store text selection in selectedText
+	char* selectedText = new char[bufLength + 1];
+	char* modifiedText = new char[bufLength * 2 + 1];
+	::SendMessage(hCurrScintilla, SCI_GETSELTEXT, 0, (LPARAM)selectedText);
+	bufLength = strlen(selectedText);
+	// char eol = (eol_mode == 1) ? '\r' : '\n';
+
+	/*
+	modifiedText[j] = 0x0;
+	bufLength = std::strlen(modifiedText);
+
+
+	// Replace content and restore selection
+	size_t selStart = (int)::SendMessage(hCurrScintilla, SCI_GETSELECTIONSTART, 0, 0);
+	size_t selEnd = (int)::SendMessage(hCurrScintilla, SCI_GETSELECTIONEND, 0, 0);
+	if (selEnd < selStart)
+	{
+		size_t tmp = selStart;
+		selStart = selEnd;
+		selEnd = tmp;
+	}
+	::SendMessage(hCurrScintilla, SCI_SETTARGETSTART, selStart, 0);
+	::SendMessage(hCurrScintilla, SCI_SETTARGETEND, selEnd, 0);
+	::SendMessage(hCurrScintilla, SCI_REPLACETARGET, bufLength, (LPARAM)modifiedText);
+	::SendMessage(hCurrScintilla, SCI_SETSEL, selStart, selStart + bufLength);
+
+	delete[] modifiedText;
+	delete[] selectedText;
+	*/
+
+
+
+	void aSnakeCase()
+{
+	HWND hCurrScintilla = getCurScintilla();
+	if (!hCurrScintilla)
+		return;
+
+	// SC_EOL_CRLF (0), SC_EOL_CR (1), or SC_EOL_LF (2).
+	// size_t eol_mode = (int)::SendMessage(hCurrScintilla, SCI_GETEOLMODE, 0, 0);
+
+	// Get buffer length based on text selection
+	size_t selectedLength = (int)::SendMessage(hCurrScintilla, SCI_GETSELTEXT, 0, 0);
+	if (selectedLength < 2)
+		return;
+
+	// Store text selection in selectedText
+	char* selectedText = new char[selectedLength + 1];
+	char* modifiedText = new char[selectedLength * 2 + 1];
+	char* finalText    = new char[selectedLength * 2 + 1];
+
+	::SendMessage(hCurrScintilla, SCI_GETSELTEXT, 0, (LPARAM)selectedText);
+
+//	for (size_t i = 0; i <= bufLength * 2 + 1; i++)
+//		modifiedText[i] = 0;
+
+	// si la longitud es menor de 2 no tiene sentido aplicar nada
+	// hay que contemplar que esa longitud puede incluir caracteres extendidos.
+	//HACER: repasar esto
+	if (selectedLength == 2 && *selectedText == -61)
+		return;
+
+	// char eol = (eol_mode == 1) ? '\r' : '\n';
+
+	boolean ep = false;
+	size_t j = 0;
+	for (size_t i = 0; i <= selectedLength - 1; i++)
+	{
+		if (selectedText[i] == ' ' || selectedText[i] == '_' || selectedText[i] == '-') ep = true;
+		else {
+			modifiedText[j] = selectedText[i];
+			if (ep) {
+				ep = false;
+				mayusculas(&modifiedText[j]);
+			}
+			j++;
+		}
+	}
+	modifiedText[j] = 0;
+	size_t modifiedLength = std::strlen(modifiedText);
+	minusculas(&modifiedText[0]);  
+
+	j = 0;
+	for (size_t i = 0; i <= modifiedLength - 1; i++)
+	{
+		if (esMayuscula(&modifiedText[i])) {
+			finalText[j] = '_';
+			j++;
+		}
+		finalText[j] = modifiedText[i];
+		j++;
+	}
+
+	finalText[j] = 0;
+	size_t finalLength = std::strlen(finalText);
+	for (size_t i = 0; i <= finalLength - 1; i++) {
+		mayusculas(&finalText[i]);
+	}
+
+
+		// Replace content and restore selection
+	size_t selStart = (int)::SendMessage(hCurrScintilla, SCI_GETSELECTIONSTART, 0, 0);
+	size_t selEnd   = (int)::SendMessage(hCurrScintilla, SCI_GETSELECTIONEND, 0, 0);
+	if (selEnd < selStart)
+	{
+		size_t tmp = selStart;
+		selStart = selEnd;
+		selEnd = tmp;
+	}
+	::SendMessage(hCurrScintilla, SCI_BEGINUNDOACTION, 0, 0);
+	::SendMessage(hCurrScintilla, SCI_SETTARGETSTART, selStart, 0);
+	::SendMessage(hCurrScintilla, SCI_SETTARGETEND, selEnd, 0);
+	::SendMessage(hCurrScintilla, SCI_REPLACETARGET, finalLength, (LPARAM)finalText);
+	::SendMessage(hCurrScintilla, SCI_SETSEL, selStart, selStart + finalLength);
+	::SendMessage(hCurrScintilla, SCI_ENDUNDOACTION, 0, 0);
+
+	delete[] modifiedText;
+	delete[] selectedText;
+	delete[] finalText;
+
+}
+
+======================================================================================================================================================================
+versión terminada pero con efectos espúreos
+
+void aSnakeCase()
+{
+	HWND hCurrScintilla = getCurScintilla();
+	if (!hCurrScintilla)
+		return;
+
+	// array de pares. Selecciones 
+	std::vector<std::pair<int, int>> selecciones;
+	// numero de selecciones
+	size_t numSelecciones = (int)::SendMessage(hCurrScintilla, SCI_GETSELECTIONS, 0, 0);
+
+	for (int i = 0; i < numSelecciones; ++i) {
+		int inicio = static_cast<int>((int)::SendMessage(hCurrScintilla, SCI_GETSELECTIONNSTART, i, 0));
+		int fin = static_cast<int>((int)::SendMessage(hCurrScintilla, SCI_GETSELECTIONNEND, i, 0));
+
+		if (inicio != fin /* && editor.LineFromPosition(start) == editor.LineFromPosition(end) */)
+			// si son iguales ignorar
+			selecciones.push_back(std::make_pair(inicio, fin));
+	}
+	::SendMessage(hCurrScintilla, SCI_CLEARSELECTIONS, 0, 0);
+	int ajuste = 0;
+	int variacion = 0;
+	for (size_t i = 0; i < selecciones.size(); ++i) {
+		//selecciona una de las secciones
+		::SendMessage(hCurrScintilla, SCI_SETTARGETRANGE, selecciones[i].first + ajuste, selecciones[i].second + ajuste);
+		// calcula el tamaño de la sección
+		auto tamSel = ::SendMessage(hCurrScintilla, SCI_GETTARGETTEXT, 0, 0);
+		// buffer para recoger el texto de la sección
+		std::string buffer(tamSel + 1, '\0');
+		// texto seleccionado
+		::SendMessage(hCurrScintilla, SCI_GETTARGETTEXT, 0, (sptr_t)&buffer[0]);
+
+		// buffer para la modificación
+		std::string bufferCase(tamSel * 2 + 1, '\0');
+		std::string finalText (tamSel * 2 + 1, '\0');
+
+
+		boolean ep = false;
+		size_t j = 0;
+		int t = 0;
+		while (buffer[t] == ' ') buffer[t++] = 0x1;
+		t = tamSel-1;
+		while (buffer[t] == ' ') buffer[t--] = 0x1;
+
+		for (size_t c = 0; c <= tamSel - 1; c++)
+		{
+			if (buffer[c] == ' ' || buffer[c] == '_' || buffer[c] == '-') ep = true;
+			else {
+				bufferCase[j] = buffer[c];
+				if (ep) {
+					ep = false;
+					mayusculas(&bufferCase[j]);
+				}
+				j++;
+			}
+		}
+		
+		size_t modifiedLength = j;
+		// pone la primera letra en minusculas
+		t = 0;
+		while (bufferCase[t] == 0x1) t++;
+		minusculas(&bufferCase[t]);
+
+		// hace la conversión
+		j = 0;
+		for (size_t i = 0; i <= modifiedLength - 1; i++)
+		{
+			if (esMayuscula(&bufferCase[i])) {
+				finalText[j] = '_';
+				j++;
+			}
+			finalText[j] = bufferCase[i];
+			if (finalText[j] == 0x1) finalText[j] = ' ';
+			mayusculas(&finalText[j]);
+
+			j++;
+		}
+
+		finalText.resize(j);
+		sptr_t aux = (sptr_t)finalText.c_str();
+		::SendMessage(hCurrScintilla, SCI_REPLACETARGET, j, (sptr_t)finalText.c_str());
+		variacion = j - tamSel;
+		if (i == 0)
+			::SendMessage(hCurrScintilla, SCI_SETSELECTION, selecciones[i].first + ajuste, selecciones[i].second + ajuste + variacion);
+		else
+			::SendMessage(hCurrScintilla, SCI_ADDSELECTION, selecciones[i].first + ajuste, selecciones[i].second + ajuste + variacion);
+
+		ajuste += variacion;
+
+	}// cada selección 
+
+}
+
+
+
+======================================================================================================================================================================
+versión terminada separa todas las mayúsculas seguidas por '_'
+
+		// hace la conversión (mayúsculas seguidas las separa por '_')
+		for (size_t c = 0; c <= buffer.size(); c++)
+		{
+			if (esMayuscula(&buffer[c])) {
+				buffer.insert(c++, 1, '_');
+			} else if (buffer[c] == 0x6) {
+				buffer[c] = ' ';
+			} else {
+				mayusculas(&buffer[c]);
+			}
+		}
